@@ -1,0 +1,30 @@
+This script will print out either a list of all zones or a list of all nodes and optionally write them to a file
+
+The credentials are read out of a configuration file in the same directory named credentials.cfg in the format:
+
+[Dynect]
+user : user_name
+customer : customer_name
+password: password
+
+Usage: %python pnz.py [-z|-n] [options]
+
+Options:
+	  -h, --help            show this help message and exit
+	  -z, --zones           Output all zones
+	  -n, --nodes           Output all nodes
+	  -f FILE, --file=FILE  File to output list to
+
+The library is available at: https://github.com/dyninc/Dynect-API-Python-Library
+
+=========================================================================
+Usage Scenarios:
+
+Want to print all zones for your account
+% python pnz.py -z
+
+Want to print all fqdns for your account and write them to a file called out.txt in the same directoty:
+% python pnz.py -n -f out.txt
+
+
+
