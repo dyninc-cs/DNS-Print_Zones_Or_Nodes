@@ -82,7 +82,7 @@ my $apipw = $configopt{'pw'} or do {
 };
 
 #API login
-my $session_uri = 'https://api2.dynect.net/REST/Session';
+my $session_uri = 'https://api2.dynect.net/REST/Session/';
 my %api_param = ( 
 	'customer_name' => $apicn,
 	'user_name' => $apiun,
