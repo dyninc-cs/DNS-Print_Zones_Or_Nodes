@@ -39,12 +39,6 @@ GetOptions(
 	'file=s' =>\$opt_file,
 );
 
-if ($opt_zone && $opt_node)
-{
-	print "Please enter -z or -n\n";
-	exit 1;
-}
-
 #Printing help menu
 if ($opt_help) {
 	print "\tAPI integration requires paramaters stored in config.cfg\n\n";
@@ -57,12 +51,16 @@ if ($opt_help) {
 	exit;
 }
 
+if (($opt_zone && $opt_node) || (!$opt_zone && !$opt_node))
+{
+	print "Please enter \"-z\" or \"-n\"\n";
+	exit;
+}
+
 #Create config reader
 my $cfg = new Config::Simple();
-
 # read configuration file (can fail)
 $cfg->read('config.cfg') or die $cfg->error();
-
 
 #dump config variables into hash for later use
 my %configopt = $cfg->vars();
@@ -70,17 +68,14 @@ my $apicn = $configopt{'cn'} or do {
 	print "Customer Name required in config.cfg for API login\n";
 	exit;
 };
-
 my $apiun = $configopt{'un'} or do {
 	print "User Name required in config.cfg for API login\n";
 	exit;
 };
-
 my $apipw = $configopt{'pw'} or do {
 	print "User password required in config.cfg for API login\n";
 	exit;
 };
-
 #API login
 my $session_uri = 'https://api2.dynect.net/REST/Session/';
 my %api_param = ( 
@@ -102,58 +97,33 @@ my $api_key = $api_decode->{'data'}->{'token'};
 
 #$api_decode = &api_request("https://api2.dynect.net/REST/Session/", 'POST', %api_param); 
 
-#Zone delete
-if($opt_zone)
+#Set param to empty
+%api_param = ();
+$session_uri = "https://api2.dynect.net/REST/Zone/";
+$api_decode = &api_request($session_uri, 'GET', %api_param); 
+foreach my $zoneIn (@{$api_decode->{'data'}})
 {
-	##Set param to empty
-	%api_param = ();
-	$session_uri = "https://api2.dynect.net/REST/Zone/";
-	$api_decode = &api_request($session_uri, 'GET', %api_param); 
-	$list .= "==============Zones==============\n";
-	foreach my $zoneIn (@{$api_decode->{'data'}})
-	{
 		#Print each zone	
-		$list .= "$zoneIn\n";
-	}
-	$list .= "=================================\n";
-	#Print list of zones user
-	print $list;
-	#Write to file if opt_file is set
-	&write_file( $opt_file, \$list) unless ($opt_file eq "");
-}
-
-#Node delete
-if($opt_node)
-{
 	
-	#Set param to empty
-	%api_param = ();
-	$session_uri = "https://api2.dynect.net/REST/Zone/";
-	$api_decode = &api_request($session_uri, 'GET', %api_param); 
-	$list = "==============Nodes==============\n";
-	foreach my $zoneIn (@{$api_decode->{'data'}})
-	{
-		#Print each zone	
-		
-		$list .= "Zone: $zoneIn\n";
-		#Getting the zone name out of the response.
-		$zoneIn =~ /\/REST\/Zone\/(.*)$/;
-		%api_param = ();
-		$session_uri = "https://api2.dynect.net/REST/NodeList/$1";
-		$api_decode = &api_request($session_uri, 'GET', %api_param); 
-
-		#Print each node in zone
-		$list .= "Nodes: \n";
-		foreach my $nodeIn (@{$api_decode->{'data'}})
-		{$list .= "\t$nodeIn\n";}
-		$list .= "=================================\n";
-	}
-	#Print list of nodes to uesr.
-	print $list;
-	#Write to file if opt_file is set
-	&write_file( $opt_file, \$list) unless ($opt_file eq "");
+		$zoneIn =~ /\/REST\/Zone\/(.*)\/$/;
+		my $zone_name = $1;
+		$list .= "ZONE: $zone_name\n";
+		if($opt_node)
+		{
+			#Getting the zone name out of the response.
+			%api_param = ();
+			$session_uri = "https://api2.dynect.net/REST/NodeList/$zone_name";
+			$api_decode = &api_request($session_uri, 'GET', %api_param); 
+	
+			#Print each node in zone
+			foreach my $nodeIn (@{$api_decode->{'data'}})
+				{$list .= "\tNODE: $nodeIn\n";}
+		}
 }
-
+#Print list of nodes to uesr.
+print $list;
+#Write to file if opt_file is set
+&write_file( $opt_file, \$list) unless ($opt_file eq "");
 
 #api logout
 %api_param = ();
