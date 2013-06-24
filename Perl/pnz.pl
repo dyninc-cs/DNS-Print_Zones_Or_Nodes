@@ -103,22 +103,22 @@ $session_uri = "https://api2.dynect.net/REST/Zone/";
 $api_decode = &api_request($session_uri, 'GET', %api_param); 
 foreach my $zoneIn (@{$api_decode->{'data'}})
 {
-		#Print each zone	
-	
-		$zoneIn =~ /\/REST\/Zone\/(.*)\/$/;
-		my $zone_name = $1;
-		$list .= "ZONE: $zone_name\n";
-		if($opt_node)
-		{
-			#Getting the zone name out of the response.
-			%api_param = ();
-			$session_uri = "https://api2.dynect.net/REST/NodeList/$zone_name";
-			$api_decode = &api_request($session_uri, 'GET', %api_param); 
-	
-			#Print each node in zone
-			foreach my $nodeIn (@{$api_decode->{'data'}})
-				{$list .= "\tNODE: $nodeIn\n";}
-		}
+	#Print each zone	
+
+	$zoneIn =~ /\/REST\/Zone\/(.*)\/$/;
+	my $zone_name = $1;
+	$list .= "ZONE: $zone_name\n";
+	if($opt_node)
+	{
+		#Getting the zone name out of the response.
+		%api_param = ();
+		$session_uri = "https://api2.dynect.net/REST/NodeList/$zone_name";
+		$api_decode = &api_request($session_uri, 'GET', %api_param); 
+
+		#Print each node in zone
+		foreach my $nodeIn (@{$api_decode->{'data'}})
+		{$list .= "\tNODE: $nodeIn\n";}
+	}
 }
 #Print list of nodes to uesr.
 print $list;
