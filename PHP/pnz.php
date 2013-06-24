@@ -1,5 +1,16 @@
 #!/usr/bin/php
 <?php
+#This script will print out either a list of all zones or a list of all nodes and optionally write them to a file
+
+#The credentials are read out of a configuration file in the same directory named conifg.ini in the format:
+
+#Usage: %php pnz.php [-z|-n] [options]
+
+#Options:
+#-h, --help		Show this help message and exit
+#-z, --zones		Output all zones
+#-n, --nodes		Output all nodes
+#-f, --file		File to output list to
 
 #Get options from command line
 $shortopts .= "f:"; 
