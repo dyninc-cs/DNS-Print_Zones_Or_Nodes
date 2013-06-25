@@ -1,5 +1,5 @@
 #!/usr/bin/php
-<?php
+<?php 
 #This script will print out either a list of all zones or a list of all nodes and optionally write them to a file
 
 #The credentials are read out of a configuration file in the same directory named conifg.ini in the format:
