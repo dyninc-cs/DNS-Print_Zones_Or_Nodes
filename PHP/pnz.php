@@ -1,5 +1,5 @@
 #!/usr/bin/php
-<?php 
+<?php
 #This script will print out either a list of all zones or a list of all nodes and optionally write them to a file
 
 #The credentials are read out of a configuration file in the same directory named conifg.ini in the format:
@@ -150,9 +150,40 @@ function api_request($zone_uri, $req_type, $api_params, $token)
 	$http_result = curl_exec($ch);
 	
 	$decoded_result = json_decode($http_result); # Decode from JSON as our results are in the same format as our request
-	
+	$decoded_result = api_fail($token, $decoded_result);	
 	return $decoded_result;
 }
 
+#Expects 2 variable, first a reference to the API key and second a reference to the decoded JSON response
+function api_fail($token, $api_jsonref) 
+{
+	#loop until the job id comes back as success or program dies
+	while ( $api_jsonref->status != 'success' ) {
+        	if ($api_jsonref->status != 'incomplete') {
+                       foreach($api_jsonref->msgs as $msgref) {
+                                print "API Error:\n";
+                                print "\tInfo: " . $msgref->INFO . "\n";
+                                print "\tLevel: " . $msgref->LVL . "\n";
+                                print "\tError Code: " . $msgref->ERR_CD . "\n";
+                                print "\tSource: " . $msgref->SOURCE . "\n";
+                        };
+                        #api logout or fail
+			$session_uri = 'https://api2.dynect.net/REST/Session/'; 
+			$api_params = array (''=>'');
+			if($token != "")
+				$decoded_result = api_request($session_uri, 'DELETE', $api_params,  $token);	
+                        exit;
+                }
+                else {
+                        sleep(5);
+                        $session_uri = "https://api2.dynect.net/REST/Job/" . $api_jsonref->job_id ."/";
+			$api_params = array (''=>'');
+			$decoded_result = api_request($session_uri, 'GET', $api_params,  $token);	
+               }
+        }
+        return $api_jsonref;
+}
+
 ?>
+
 
