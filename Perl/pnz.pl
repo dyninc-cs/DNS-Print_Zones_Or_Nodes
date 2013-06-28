@@ -8,12 +8,12 @@
 #customer : customer_name
 #password: password
 
-#Usage: %perl pnz.pl [-z|-n] [options]
+#Usage: %perl pnz.pl [-z|-n] [-f example.txt]
 
 #Options:
 #-h, --help            show this help message and exit
 #-z, --zones           Output all zones
-#-n, --nodes           Output all nodes 
+#-n, --nodes           Output all nodes
 #-f FILE, --file=FILE  File to output list to
 
 use warnings;
@@ -21,15 +21,15 @@ use strict;
 use Data::Dumper;
 use XML::Simple;
 use Config::Simple;
-use Getopt::Long qw(:config no_ignore_case);
+use Getopt::Long;
 use LWP::UserAgent;
 use JSON;
+use IO::Handle;
 
 #Get Options
 my $opt_zone;
 my $opt_node;
 my $opt_help;
-my $list;
 my $opt_file="";
 
 GetOptions(
@@ -39,10 +39,9 @@ GetOptions(
 	'file=s' =>\$opt_file,
 );
 
+
 #Printing help menu
 if ($opt_help) {
-	print "\tAPI integration requires paramaters stored in config.cfg\n\n";
-
 	print "\tOptions:\n";
 	print "\t\t-h, --help\t\t Show the help message and exit\n";
 	print "\t\t-z, --zones\t\t Print the zones\n";
@@ -51,16 +50,25 @@ if ($opt_help) {
 	exit;
 }
 
+# Dont let the program run unless -z or -n are set
 if (($opt_zone && $opt_node) || (!$opt_zone && !$opt_node))
 {
 	print "Please enter \"-z\" or \"-n\"\n";
 	exit;
 }
 
+#If the user wants it printed to a file, set standard output to file
+if($opt_file ne "")
+{
+	open OUTPUT, '>', $opt_file or die $!;
+	STDOUT->fdopen( \*OUTPUT, 'w' ) or die $!;
+}
+
 #Create config reader
 my $cfg = new Config::Simple();
 # read configuration file (can fail)
 $cfg->read('config.cfg') or die $cfg->error();
+
 
 #dump config variables into hash for later use
 my %configopt = $cfg->vars();
@@ -76,8 +84,9 @@ my $apipw = $configopt{'pw'} or do {
 	print "User password required in config.cfg for API login\n";
 	exit;
 };
+
 #API login
-my $session_uri = 'https://api2.dynect.net/REST/Session/';
+my $session_uri = 'https://api2.dynect.net/REST/Session';
 my %api_param = ( 
 	'customer_name' => $apicn,
 	'user_name' => $apiun,
@@ -93,53 +102,41 @@ my $api_lwp = LWP::UserAgent->new;
 my $api_result = $api_lwp->request( $api_request );
 
 my $api_decode = decode_json ( $api_result->content ) ;
-my $api_key = $api_decode->{'data'}->{'token'};
+my $api_token = $api_decode->{'data'}->{'token'};
 
-#$api_decode = &api_request("https://api2.dynect.net/REST/Session/", 'POST', %api_param); 
-
-#Set param to empty
+##Set param to empty
 %api_param = ();
 $session_uri = "https://api2.dynect.net/REST/Zone/";
-$api_decode = &api_request($session_uri, 'GET', %api_param); 
+$api_decode = &api_request($session_uri, 'GET', $api_token, %api_param); 
 foreach my $zoneIn (@{$api_decode->{'data'}})
 {
-	#Print each zone	
-
+	#Getting the zone name out of the response.
 	$zoneIn =~ /\/REST\/Zone\/(.*)\/$/;
 	my $zone_name = $1;
-	$list .= "ZONE: $zone_name\n";
+	#Print each zone	
+	print "ZONE: $zone_name\n";
+	#If -n is set, print the nodes
 	if($opt_node)
 	{
-		#Getting the zone name out of the response.
 		%api_param = ();
-		$session_uri = "https://api2.dynect.net/REST/NodeList/$zone_name";
-		$api_decode = &api_request($session_uri, 'GET', %api_param); 
+		$session_uri = "https://api2.dynect.net/REST/NodeList/$zone_name/";
+		$api_decode = &api_request($session_uri, 'GET', $api_token, %api_param); 
 
 		#Print each node in zone
 		foreach my $nodeIn (@{$api_decode->{'data'}})
-		{$list .= "\tNODE: $nodeIn\n";}
+			{print "\tNODE: $nodeIn\n";}
 	}
 }
-#Print list of nodes to uesr.
-print $list;
-#Write to file if opt_file is set
-&write_file( $opt_file, \$list) unless ($opt_file eq "");
 
 #api logout
 %api_param = ();
 $session_uri = 'https://api2.dynect.net/REST/Session';
-&api_request($session_uri, 'DELETE', %api_param); 
-
-sub write_file{
-	my( $opt_file, $list_ref ) = @_ ;
-	open( my $fh, ">$opt_file" ) || die "can't create $opt_file $!" ;
-	print $fh $$list_ref ;
-}
+&api_request($session_uri, 'DELETE', $api_token, %api_param); 
 
 #Accepts Zone URI, Request Type, and Any Parameters
 sub api_request{
 	#Get in variables, send request, send parameters, get result, decode, display if error
-	my ($zone_uri, $req_type, %api_param) = @_;
+	my ($zone_uri, $req_type, $api_key, %api_param) = @_;
 	$api_request = HTTP::Request->new($req_type, $zone_uri);
 	$api_request->header ( 'Content-Type' => 'application/json', 'Auth-Token' => $api_key );
 	$api_request->content( to_json( \%api_param ) );
