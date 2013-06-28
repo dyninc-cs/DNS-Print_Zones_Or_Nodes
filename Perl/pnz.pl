@@ -13,7 +13,7 @@
 #Options:
 #-h, --help            show this help message and exit
 #-z, --zones           Output all zones
-#-n, --nodes           Output all nodes
+#-n, --nodes           Output all nodes 
 #-f FILE, --file=FILE  File to output list to
 
 use warnings;
