@@ -1,20 +1,20 @@
 #!/usr/bin/perl
-#This script will print out either a list of all zones or a list of all nodes and optionally write them to a file
+#This script will print out the zones or nodes in JSON format.
+#It defaults to standard output to be used for piping. 
+#You can use the -f flag to specify a file to write to.
 
-#The credentials are read out of a configuration file in the same directory named credentials.cfg in the format:
-
-#[Dynect]
-#user : user_name
-#customer : customer_name
-#password: password
-
-#Usage: %perl pnz.pl [-z|-n] [-f example.txt]
+#The credentials are read out of a configuration file in the same directory named config.cfg:
 
 #Options:
-#-h, --help            show this help message and exit
-#-z, --zones           Output all zones
-#-n, --nodes           Output all nodes
-#-f FILE, --file=FILE  File to output list to
+#-h, --help		Show the help message and exit
+#-z, --zones		Prints out the URI's of all the zones
+#-n, --nodes		Prints out the nodes on the account
+#-f, --file		Filename to send output to
+
+#Usage: This will print out the nodes to standard output.
+#perl pnz.pl -n
+#Usage: This will print out the zone URI's to example.txt
+#perl pnz.pl -z -f example.txt
 
 use warnings;
 use strict;
@@ -25,6 +25,10 @@ use Getopt::Long;
 use LWP::UserAgent;
 use JSON;
 use IO::Handle;
+#Import DynECT handler
+use FindBin;
+use lib "$FindBin::Bin/DynECT";  # use the parent directory
+require DynECT::DNS_REST;
 
 #Get Options
 my $opt_zone;
@@ -43,10 +47,10 @@ GetOptions(
 #Printing help menu
 if ($opt_help) {
 	print "\tOptions:\n";
-	print "\t\t-h, --help\t\t Show the help message and exit\n";
-	print "\t\t-z, --zones\t\t Print the zones\n";
-	print "\t\t-n, --nodes\t\t Print the nodes\n";
-	print "\t\t-f, --file\t\t File to output\n\n";
+	print "\t\t-h, --help\t\t Show this help message and exit\n";
+	print "\t\t-z, --zones\t\t Prints out the URI's of all the zones\n";
+	print "\t\t-n, --nodes\t\t Prints out the nodes no the account\n";
+	print "\t\t-f, --file\t\t Filename to send JSON output to\n\n";
 	exit;
 }
 
@@ -55,13 +59,6 @@ if (($opt_zone && $opt_node) || (!$opt_zone && !$opt_node))
 {
 	print "Please enter \"-z\" or \"-n\"\n";
 	exit;
-}
-
-#If the user wants it printed to a file, set standard output to file
-if($opt_file ne "")
-{
-	open OUTPUT, '>', $opt_file or die $!;
-	STDOUT->fdopen( \*OUTPUT, 'w' ) or die $!;
 }
 
 #Create config reader
@@ -85,102 +82,39 @@ my $apipw = $configopt{'pw'} or do {
 	exit;
 };
 
-#API login
-my $session_uri = 'https://api2.dynect.net/REST/Session';
-my %api_param = ( 
-	'customer_name' => $apicn,
-	'user_name' => $apiun,
-	'password' => $apipw,
-);
+#API login & zone request
+my $dynect = DynECT::DNS_REST->new;
+$dynect->login( $apicn, $apiun, $apipw) or die $dynect->message;
+$dynect->request( '/REST/Zone/', 'GET') or die $dynect->message;
 
-#API Login
-my $api_request = HTTP::Request->new('POST',$session_uri);
-$api_request->header ( 'Content-Type' => 'application/json' );
-$api_request->content( to_json( \%api_param ) );
+#Open file for output
+open my $fh, ">", $opt_file unless ($opt_file eq "");
 
-my $api_lwp = LWP::UserAgent->new;
-my $api_result = $api_lwp->request( $api_request );
-
-my $api_decode = decode_json ( $api_result->content ) ;
-my $api_token = $api_decode->{'data'}->{'token'};
-
-##Set param to empty
-%api_param = ();
-$session_uri = "https://api2.dynect.net/REST/Zone/";
-$api_decode = &api_request($session_uri, 'GET', $api_token, %api_param); 
-foreach my $zoneIn (@{$api_decode->{'data'}})
+#If -z is set, print out the information
+if($opt_zone)
 {
-	#Getting the zone name out of the response.
-	$zoneIn =~ /\/REST\/Zone\/(.*)\/$/;
-	my $zone_name = $1;
-	#Print each zone	
-	print "ZONE: $zone_name\n";
-	#If -n is set, print the nodes
-	if($opt_node)
-	{
-		%api_param = ();
-		$session_uri = "https://api2.dynect.net/REST/NodeList/$zone_name/";
-		$api_decode = &api_request($session_uri, 'GET', $api_token, %api_param); 
+	#Print out information to either user or file
+	print $fh encode_json($dynect->result->{'data'}) unless ($opt_file eq "");
+	print encode_json($dynect->result->{'data'}) unless ($opt_file ne "");
 
+}
+#Go through the zones and print the nodes if -n is set
+else
+{
+	foreach my $zoneIn (@{$dynect->result->{'data'}})
+	{
+		#Getting the zone name out of the response.
+		$zoneIn =~ /\/REST\/Zone\/(.*)\/$/;
+		#If -n is set, print the nodes
+		$dynect->request( "/REST/NodeList/$1", "GET" ) or die $dynect->message;
 		#Print each node in zone
-		foreach my $nodeIn (@{$api_decode->{'data'}})
-			{print "\tNODE: $nodeIn\n";}
+		print $fh encode_json($dynect->result->{'data'}) unless ($opt_file eq "");
+		print encode_json($dynect->result->{'data'}) unless ($opt_file ne "");
 	}
 }
+
+close $fh unless ($opt_file eq "");
 
 #api logout
-%api_param = ();
-$session_uri = 'https://api2.dynect.net/REST/Session';
-&api_request($session_uri, 'DELETE', $api_token, %api_param); 
-
-#Accepts Zone URI, Request Type, and Any Parameters
-sub api_request{
-	#Get in variables, send request, send parameters, get result, decode, display if error
-	my ($zone_uri, $req_type, $api_key, %api_param) = @_;
-	$api_request = HTTP::Request->new($req_type, $zone_uri);
-	$api_request->header ( 'Content-Type' => 'application/json', 'Auth-Token' => $api_key );
-	$api_request->content( to_json( \%api_param ) );
-	$api_result = $api_lwp->request($api_request);
-	$api_decode = decode_json( $api_result->content);
-	$api_decode = &api_fail(\$api_key, $api_decode) unless ($api_decode->{'status'} eq 'success');
-	return $api_decode;
-}
-
-#Expects 2 variable, first a reference to the API key and second a reference to the decoded JSON response
-sub api_fail {
-	my ($api_keyref, $api_jsonref) = @_;
-	#set up variable that can be used in either logic branch
-	my $api_request;
-	my $api_result;
-	my $api_decode;
-	my $api_lwp = LWP::UserAgent->new;
-	my $count = 0;
-	#loop until the job id comes back as success or program dies
-	while ( $api_jsonref->{'status'} ne 'success' ) {
-		if ($api_jsonref->{'status'} ne 'incomplete') {
-			foreach my $msgref ( @{$api_jsonref->{'msgs'}} ) {
-				print "API Error:\n";
-				print "\tInfo: $msgref->{'INFO'}\n" if $msgref->{'INFO'};
-				print "\tLevel: $msgref->{'LVL'}\n" if $msgref->{'LVL'};
-				print "\tError Code: $msgref->{'ERR_CD'}\n" if $msgref->{'ERR_CD'};
-				print "\tSource: $msgref->{'SOURCE'}\n" if $msgref->{'SOURCE'};
-			};
-			#api logout or fail
-			$api_request = HTTP::Request->new('DELETE','https://api2.dynect.net/REST/Session');
-			$api_request->header ( 'Content-Type' => 'application/json', 'Auth-Token' => $$api_keyref );
-			$api_result = $api_lwp->request( $api_request );
-			$api_decode = decode_json ( $api_result->content);
-			exit;
-		}
-		else {
-			sleep(5);
-			my $job_uri = "https://api2.dynect.net/REST/Job/$api_jsonref->{'job_id'}/";
-			$api_request = HTTP::Request->new('GET',$job_uri);
-			$api_request->header ( 'Content-Type' => 'application/json', 'Auth-Token' => $$api_keyref );
-			$api_result = $api_lwp->request( $api_request );
-			$api_jsonref = decode_json( $api_result->content );
-		}
-	}
-	$api_jsonref;
-}
+$dynect->logout;
 
