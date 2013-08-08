@@ -1,0 +1,49 @@
+Dyn Inc, Integration Team Deliverable
+"Copyright © 2013, Dyn Inc.
+All rights reserved.
+ 
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+ 
+* Redistributions of source code must retain the above copyright notice,
+  this list of conditions and the following disclaimer.
+ 
+* Redistributions in binary form must reproduce the above copyright
+  notice, this list of conditions and the following disclaimer in the
+  documentation and/or other materials provided with the distribution.
+ 
+* Neither the name of Dynamic Network Services, Inc. nor the names of
+  its contributors may be used to endorse or promote products derived
+  from this software without specific prior written permission.
+ 
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
+
+___________________________________________________________________________________
+
+This script will print out the zones or nodes in JSON format.
+It defaults to standard output to be used for piping. 
+You can use the -f flag to specify a file to write to.
+
+The credentials are read out of a configuration file in the same directory named config.cfg:
+
+Options:
+-h, --help		Show the help message and exit
+-z, --zones		Prints out the URI's of all the zones
+-n, --nodes		Prints out the nodes on the account
+-f, --file		Filename to send output to
+
+Usage: This will print out the nodes to standard output.
+perl pnz.pl -n
+Usage: This will print out the zone URI's to example.txt
+perl pnz.pl -z -f example.txt
