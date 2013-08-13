@@ -36,6 +36,7 @@ my $opt_zone;
 my $opt_node;
 my $opt_help;
 my $opt_file="";
+my %zones = ();
 
 GetOptions(
 	'help' => \$opt_help,
@@ -67,7 +68,6 @@ my $cfg = new Config::Simple();
 # read configuration file (can fail)
 $cfg->read('config.cfg') or die $cfg->error();
 
-
 #dump config variables into hash for later use
 my %configopt = $cfg->vars();
 my $apicn = $configopt{'cn'} or do {
@@ -94,26 +94,45 @@ open my $fh, ">", $opt_file unless ($opt_file eq "");
 #If -z is set, print out the information
 if($opt_zone)
 {
+	#Create a hash of an array 
+	foreach my $zoneIn (@{$dynect->result->{'data'}})
+	{
+		#Getting the zone name out of the response.
+		$zoneIn =~ /\/REST\/Zone\/(.*)\/$/;
+		push(@{$zones{'zones'}}, $1);
+
+	}
+	print Dumper(\%zones);
+
 	#Print out information to either user or file
-	print $fh encode_json($dynect->result->{'data'}) unless ($opt_file eq "");
-	print encode_json($dynect->result->{'data'}) unless ($opt_file ne "");
+	my $json_out = to_json(\%zones);
+	print $fh $json_out unless ($opt_file eq "");
+	print $json_out unless ($opt_file ne "");
 
 }
 #Go through the zones and print the nodes if -n is set
-else
+elsif($opt_node)
 {
 	foreach my $zoneIn (@{$dynect->result->{'data'}})
 	{
 		#Getting the zone name out of the response.
 		$zoneIn =~ /\/REST\/Zone\/(.*)\/$/;
-		#If -n is set, print the nodes
+		#If -n is set, push to hash of arrays
 		$dynect->request( "/REST/NodeList/$1", "GET" ) or die $dynect->message;
-		#Print each node in zone
-		print $fh encode_json($dynect->result->{'data'}) unless ($opt_file eq "");
-		print encode_json($dynect->result->{'data'}) unless ($opt_file ne "");
+		foreach my $nodeIn (@{$dynect->result->{'data'}})
+		{
+			push(@{$zones{$1}}, $nodeIn);
+		}
 	}
+	print Dumper(\%zones);
+	
+	#Print each node in zone
+	my $json_out = to_json(\%zones);
+	print $fh $json_out unless ($opt_file eq "");
+	print $json_out unless ($opt_file ne "");
 }
 
+#Close file
 close $fh unless ($opt_file eq "");
 
 #api logout
