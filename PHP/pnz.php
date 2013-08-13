@@ -88,6 +88,7 @@ $session_uri = 'https://api2.dynect.net/REST/Zone/';
 $api_params = array (''=>'');
 $decoded_result = api_request($session_uri, 'GET', $api_params,  $token);	
 
+$zonelist = array();
 # For each zone print the zone name & nodes if requested
 foreach($decoded_result->data as $zonein){
 
@@ -95,23 +96,31 @@ foreach($decoded_result->data as $zonein){
 	preg_match("/\/REST\/Zone\/(.*)\/$/", $zonein, $matches);
 	$zoneName = $matches[1];
 	
-	# Print out each zone
-	print "ZONE: ".$zoneName . "\n";
-
-	# If the user want to see the nodes
-	if($opt_node == true)
+	# If the user want to see the zones else nodes 
+	if($opt_zone == true)
 	{
+		# Print out each zone
+		array_push($zonelist, $zoneName);
+		$zones['zones'] = $zonelist;
+	}
+	elseif($opt_node == true)
+	{
+		$nodelist = array();
 		# Zone URI & Empty Params	
 		$session_uri = 'https://api2.dynect.net/REST/NodeList/'. $zoneName . '/'; 
 		$api_params = array (''=>'');
 		$decoded_result = api_request($session_uri, 'GET', $api_params,  $token);	
 		#Print Nodes
 		foreach($decoded_result->data as $nodein){
-			print "\tNODE: " . $nodein. "\n";
+			array_push($nodelist, $nodein);
+			$zones[$zoneName] = $nodein;
 		}
+		$zones[$zoneName] = $nodelist;
 	}
 }
 
+echo json_encode($zones);
+print_r($zones);
 #If -f is set, send the output to the file
 if(is_string($options['f']))
 {
